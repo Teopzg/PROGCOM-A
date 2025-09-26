@@ -75,22 +75,22 @@ def jugar(eleccion_usuario):
     # 2. Caso de VICTORIA (Ganar)
     elif eleccion_cpu in REGLAS[eleccion_usuario]:
         puntos_usuario += 1 # Suma un punto al usuario
-        texto_resultado.set(f"¡Ganaste la Ronda! 🎉 {eleccion_usuario} vence a {eleccion_cpu}")
+        texto_resultado.set(f"¡Ganaste la Ronda! {eleccion_usuario} vence a {eleccion_cpu}")
 
     # 3. Caso de DERROTA (Perder)
     else:
         puntos_cpu += 1 # Suma un punto a la CPU
-        texto_resultado.set(f"¡Perdiste la Ronda! 😞 {eleccion_cpu} vence a {eleccion_usuario}")
+        texto_resultado.set(f"¡Perdiste la Ronda! {eleccion_cpu} vence a {eleccion_usuario}")
 
     # Siempre actualizamos el marcador después de la ronda
     actualizar_puntaje_ui()
 
     # 4. Revisar si hay un GANADOR FINAL
     if puntos_usuario >= max_puntos:
-        texto_resultado.set("¡¡FELICIDADES!! ¡Has ganado la partida! 🏆")
+        texto_resultado.set("¡¡FELICIDADES!! ¡Has ganado la partida!")
         deshabilitar_botones()
     elif puntos_cpu >= max_puntos:
-        texto_resultado.set("¡Juego Terminado! La CPU ganó la partida. 🤖")
+        texto_resultado.set("¡Juego Terminado! La CPU ganó la partida.")
         deshabilitar_botones()
 
 
