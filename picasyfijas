@@ -1,0 +1,321 @@
+import tkinter as tk
+from tkinter import messagebox, simpledialog 
+from tkinter import ttk 
+import random
+import sys 
+CANTIDAD_DIGITOS = 4 
+LIMITE_INTENTOS_IA = 10 
+
+
+
+def crear_codigo_secreto_unico():
+    """
+    Genera un código secreto de CANTIDAD_DIGITOS (por defecto 4)
+    dígitos únicos y aleatorios.
+    """
+  
+    lista_digitos = list("0123456789")
+    
+    random.shuffle(lista_digitos)
+   
+    codigo_generado = "".join(lista_digitos[:CANTIDAD_DIGITOS])
+    
+    return codigo_generado
+
+def calcular_fijas_y_picas(intento_usuario, codigo_a_adivinar):
+    """
+    Compara el intento_usuario con el codigo_a_adivinar.
+    Retorna (fijas, picas).
+    - Fijas (Bulls): Dígito correcto en posición correcta.
+    - Picas (Cows): Dígito correcto en posición incorrecta.
+    """
+    
+    resultado_fijas = 0
+    
+
+    for indice in range(CANTIDAD_DIGITOS):
+        if intento_usuario[indice] == codigo_a_adivinar[indice]:
+            resultado_fijas += 1
+        
+   
+    picas_correctas = 0
+    for i in range(CANTIDAD_DIGITOS):
+        if intento_usuario[i] != codigo_a_adivinar[i] and intento_usuario[i] in codigo_a_adivinar:
+            picas_correctas += 1
+
+    return resultado_fijas, picas_correctas
+
+
+
+def modo_jugador_adivina(ventana_menu):
+    """El modo clásico: el jugador tiene que adivinar el número secreto."""
+    
+    
+    codigo_a_adivinar = crear_codigo_secreto_unico()
+    
+   
+    historial_intentos = [] 
+
+    def validar_intento(intento):
+        """Función de validación de formato."""
+        if len(intento) != CANTIDAD_DIGITOS:
+            messagebox.showerror("Error de Entrada", f"¡Eh! El número debe ser de exactamente {CANTIDAD_DIGITOS} dígitos.")
+            return False
+        if not intento.isdigit():
+            messagebox.showerror("Error de Entrada", "El intento debe contener solo números.")
+            return False
+        if len(set(intento)) != CANTIDAD_DIGITOS:
+            messagebox.showerror("Error de Entrada", "Los dígitos deben ser únicos (sin repetición).")
+            return False
+        return True
+
+    def actualizar_historial():
+        """Actualiza la lista visual con todos los intentos realizados."""
+        lista_historial.delete(0, tk.END) 
+        for intento, fijas, picas in historial_intentos:
+            lista_historial.insert(tk.END, f"Intento: {intento} -> {fijas} Fijas, {picas} Picas")
+
+    def manejar_comprobacion_intento():
+        """Se ejecuta cuando el jugador presiona el botón 'Comprobar'."""
+        intento_actual = caja_entrada.get()
+        caja_entrada.delete(0, tk.END) 
+        if not validar_intento(intento_actual):
+            return
+        
+        
+        resultado_fijas, resultado_picas = calcular_fijas_y_picas(intento_actual, codigo_a_adivinar)
+        
+      
+        historial_intentos.append((intento_actual, resultado_fijas, resultado_picas))
+        actualizar_historial()
+        
+       
+        if resultado_fijas == CANTIDAD_DIGITOS:
+            messagebox.showinfo("¡VICTORIA!", f"¡Adivinaste el código {codigo_a_adivinar} en solo {len(historial_intentos)} intentos! Eres un genio de la deducción.")
+            ventana_juego.destroy()
+            ventana_menu.deiconify() 
+        
+    
+    ventana_juego = tk.Toplevel(ventana_menu)
+    ventana_juego.title("Modo: Jugador Adivina el Secreto")
+    ventana_juego.geometry("450x550") 
+    
+    marco_principal = ttk.Frame(ventana_juego, padding="20")
+    marco_principal.pack(fill='both', expand=True)
+
+    ttk.Label(marco_principal, text="Adivina el Código Secreto", font=('Arial', 16, 'bold')).pack(pady=10)
+    ttk.Label(marco_principal, text=f"Ingresa tu intento de {CANTIDAD_DIGITOS} dígitos únicos:").pack(pady=5)
+    
+    caja_entrada = ttk.Entry(marco_principal, width=15, justify='center', font=('Arial', 14))
+    caja_entrada.pack(pady=5, padx=20)
+    caja_entrada.focus() 
+
+    
+    estilo_boton = ttk.Style()
+    estilo_boton.configure('T.TButton', font=('Arial', 12, 'bold'), padding=10, background='#4CAF50', foreground='black')
+    
+   
+    ttk.Button(marco_principal, text=" Comprobar Intento", command=manejar_comprobacion_intento, style='T.TButton').pack(pady=15)
+    
+    ttk.Label(marco_principal, text="Historial de Intentos:", font=('Arial', 12, 'underline')).pack(pady=10)
+
+    frame_lista = ttk.Frame(marco_principal)
+    frame_lista.pack(fill='both', expand=True, padx=10, pady=5)
+
+    scrollbar = ttk.Scrollbar(frame_lista, orient=tk.VERTICAL)
+    lista_historial = tk.Listbox(frame_lista, yscrollcommand=scrollbar.set, font=('Consolas', 10), height=15)
+    scrollbar.config(command=lista_historial.yview)
+
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    lista_historial.pack(side=tk.LEFT, fill='both', expand=True)
+
+  
+    def al_cerrar_juego():
+        ventana_juego.destroy()
+        ventana_menu.deiconify()
+
+    ventana_juego.protocol("WM_DELETE_WINDOW", al_cerrar_juego)
+    ventana_juego.mainloop()
+
+
+
+
+
+def modo_maquina_adivina(ventana_menu):
+    """La máquina intenta adivinar el código que pensó el jugador (Algoritmo de Deducción)."""
+   
+    codigo_oculto_jugador = simpledialog.askstring(
+        "🤖 Máquina Adivina", 
+        f"Piensa un número de {CANTIDAD_DIGITOS} dígitos únicos. ¡Ingrésalo ahora! (La máquina lo usará para verificar sus intentos)"
+    )
+    
+   
+    if not codigo_oculto_jugador or len(codigo_oculto_jugador) != CANTIDAD_DIGITOS or \
+       len(set(codigo_oculto_jugador)) != CANTIDAD_DIGITOS or not codigo_oculto_jugador.isdigit():
+        messagebox.showerror("Error", "El número secreto debe ser de 4 dígitos únicos. ¡Intenta de nuevo!")
+        return
+
+   
+    candidatos_posibles = []
+    for n in range(10**(CANTIDAD_DIGITOS)):
+        num_str = f"{n:0{CANTIDAD_DIGITOS}d}" 
+        if len(set(num_str)) == CANTIDAD_DIGITOS: 
+            candidatos_posibles.append(num_str)
+    
+    contador_intentos = 0
+    
+   
+    ventana_ia = tk.Toplevel(ventana_menu)
+    ventana_ia.title("Modo: La Máquina Adivina tu Secreto")
+    ventana_ia.geometry("450x500")
+
+    marco_principal = ttk.Frame(ventana_ia, padding="20")
+    marco_principal.pack(fill='both', expand=True)
+
+    ttk.Label(marco_principal, text=" ¡La Máquina Piensa!", font=('Arial', 16, 'bold')).pack(pady=10)
+    
+    etiqueta_intento = ttk.Label(marco_principal, text="Código Secreto: XXXX", font=('Arial', 12, 'bold'))
+    etiqueta_intento.pack(pady=5)
+
+    etiqueta_restantes = ttk.Label(marco_principal, text=f"Candidatos restantes: {len(candidatos_posibles)}", font=('Arial', 10))
+    etiqueta_restantes.pack(pady=5)
+    
+    ttk.Label(marco_principal, text="Historial de Intentos de la IA:", font=('Arial', 12, 'underline')).pack(pady=10)
+
+
+    frame_lista = ttk.Frame(marco_principal)
+    frame_lista.pack(fill='both', expand=True, padx=10, pady=5)
+
+    scrollbar = ttk.Scrollbar(frame_lista, orient=tk.VERTICAL)
+    lista_historial_ia = tk.Listbox(frame_lista, yscrollcommand=scrollbar.set, font=('Consolas', 10), height=10)
+    scrollbar.config(command=lista_historial_ia.yview)
+
+    scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+    lista_historial_ia.pack(side=tk.LEFT, fill='both', expand=True)
+    
+   
+    
+    def proxima_jugada_ia():
+        """Ejecuta un paso del algoritmo de deducción (Algoritmo de Knuth)."""
+        nonlocal contador_intentos, candidatos_posibles
+        
+        if not candidatos_posibles:
+            messagebox.showerror("¡Error!", "¡Algo salió mal! El número secreto no estaba en la lista de posibilidades. ¿Acaso hiciste trampa?")
+            ventana_ia.destroy()
+            ventana_menu.deiconify()
+            return
+
+        if contador_intentos >= LIMITE_INTENTOS_IA:
+            messagebox.showinfo("Resultado", f"La máquina se rinde después de {LIMITE_INTENTOS_IA} intentos. ¡Ganaste tú!")
+            ventana_ia.destroy()
+            ventana_menu.deiconify()
+            return
+        
+        
+        intento_maquina = candidatos_posibles[0]
+        contador_intentos += 1
+        
+        
+        resultado_fijas, resultado_picas = calcular_fijas_y_picas(intento_maquina, codigo_oculto_jugador)
+        
+      
+        etiqueta_intento.config(text=f"Intento de la IA: {intento_maquina}")
+        lista_historial_ia.insert(tk.END, f"({contador_intentos}) Intento: {intento_maquina} -> {resultado_fijas} Fijas, {resultado_picas} Picas")
+        lista_historial_ia.yview(tk.END) 
+
+        if resultado_fijas == CANTIDAD_DIGITOS:
+            messagebox.showinfo("Resultado", f"¡La máquina adivinó tu código {intento_maquina} en solo {contador_intentos} intentos! ")
+            boton_jugada.config(state=tk.DISABLED) 
+            ventana_ia.destroy()
+            ventana_menu.deiconify()
+            return
+
+       
+        lista_filtrada = []
+        for candidato_posible in candidatos_posibles:
+           
+            if calcular_fijas_y_picas(candidato_posible, intento_maquina) == (resultado_fijas, resultado_picas):
+                lista_filtrada.append(candidato_posible)
+            
+        candidatos_posibles = lista_filtrada
+        etiqueta_restantes.config(text=f"Candidatos restantes: {len(candidatos_posibles)}")
+        
+   
+    boton_jugada = ttk.Button(marco_principal, 
+                              text=" Siguiente Intento de la IA", 
+                              command=proxima_jugada_ia,
+                              style='T.TButton')
+    boton_jugada.pack(pady=15)
+    
+   
+    def al_cerrar_ia():
+        ventana_ia.destroy()
+        ventana_menu.deiconify()
+
+    ventana_ia.protocol("WM_DELETE_WINDOW", al_cerrar_ia)
+    ventana_ia.mainloop()
+
+
+
+def iniciar_programa_principal():
+    """Crea la ventana inicial de selección de modo."""
+    ventana_menu = tk.Tk()
+    ventana_menu.title("Juego de Picas y Fijas - Menú Principal")
+    
+    marco_menu = ttk.Frame(ventana_menu, padding="30")
+    marco_menu.pack()
+    
+   
+    estilo_menu = ttk.Style()
+    estilo_menu.configure('Menu.TButton', font=('Arial', 11), padding=10, foreground='#333333', background='#ADD8E6')
+    estilo_menu.map('Menu.TButton', background=[('active', '#87CEEB')])
+
+    ttk.Label(marco_menu, text="¡Bienvenido a Picas y Fijas!", font=('Arial', 18, 'bold')).pack(pady=10)
+    ttk.Label(marco_menu, text=f"Juego de adivinar un código de {CANTIDAD_DIGITOS} dígitos únicos.", font=('Arial', 10)).pack(pady=10)
+    
+   
+    ttk.Button(marco_menu, 
+               text="1️⃣ Jugador Adivina (Clásico)", 
+               width=30, 
+               command=lambda:[ventana_menu.withdraw(), modo_jugador_adivina(ventana_menu)], 
+               style='Menu.TButton').pack(pady=10)
+    
+ 
+    ttk.Button(marco_menu, 
+               text="2️⃣ Máquina Adivina (El Reto)", 
+               width=30, 
+               command=lambda:[ventana_menu.withdraw(), modo_maquina_adivina(ventana_menu)], 
+               style='Menu.TButton').pack(pady=10)
+    
+   
+    ttk.Button(marco_menu, 
+               text=" Salir del Juego", 
+               width=30, 
+               command=ventana_menu.destroy, 
+               style='Menu.TButton').pack(pady=20)
+
+
+    
+    ventana_menu.update_idletasks()
+    ancho = ventana_menu.winfo_reqwidth()
+    alto = ventana_menu.winfo_reqheight()
+    x = (ventana_menu.winfo_screenwidth() // 2) - (ancho // 2)
+    y = (ventana_menu.winfo_screenheight() // 2) - (alto // 2)
+    ventana_menu.geometry(f'{ancho}x{alto}+{x}+{y}')
+
+    
+    ventana_menu.mainloop()
+
+
+
+if _name_ == "_main_":
+    try:
+        print("Iniciando la aplicación de Picas y Fijas (Bulls and Cows)...")
+        
+        iniciar_programa_principal()
+        print("Programa finalizado. ¡Gracias por jugar!")
+    except Exception as error_arranque:
+  
+        messagebox.showerror("Error Crítico", f"Error al iniciar la aplicación: {error_arranque}")
+        print(f"¡Error crítico al arrancar la GUI! Detalles: {error_arranque}")
+        sys.exit(1)
