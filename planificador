@@ -1,0 +1,261 @@
+import tkinter as tk  
+from tkinter import ttk, messagebox
+
+
+class Tarea:
+    """Representa una tarea de producción."""
+    
+    def _init_(self, nombre: str, duracion: int, prioridad: int):
+        self.nombre = nombre
+        self.duracion = duracion
+        self.prioridad = prioridad
+
+    
+    def _repr_(self):
+        """Representación para depuración."""
+        return f"Tarea(nombre='{self.nombre}', duracion={self.duracion}, prioridad={self.prioridad})"
+
+class Planificador:
+    """Contiene la lógica central para ordenar y planificar las tareas."""
+
+   
+    def _init_(self, tiempo_disponible: int, tareas: list):
+        self.tiempo_disponible = tiempo_disponible
+        self.tareas = tareas
+
+    def planificar_produccion(self):
+        """
+        Ordena y planifica la ejecución de tareas por prioridad.
+        Retorna las tareas programadas y el tiempo restante.
+        """
+        
+       
+        tareas_ordenadas = sorted(self.tareas, key=lambda t: t.prioridad)
+
+        tiempo_restante = self.tiempo_disponible
+        tareas_programadas = []
+        log_mensajes = []
+        
+        log_mensajes.append(f"--- Planificación Iniciada ---")
+        log_mensajes.append(f"Tiempo total disponible: {self.tiempo_disponible} horas.")
+        log_mensajes.append("-" * 30)
+
+   
+        for tarea in tareas_ordenadas:
+            duracion_tarea = tarea.duracion
+
+         
+            if duracion_tarea <= tiempo_restante:
+                
+                tareas_programadas.append(tarea)
+                tiempo_restante -= duracion_tarea
+                
+                log_mensajes.append(
+                    f" Tarea '{tarea.nombre}' programada (P: {tarea.prioridad}, D: {duracion_tarea}h). "
+                    f"Tiempo restante: {tiempo_restante}h."
+                )
+            else:
+               
+                log_mensajes.append(
+                    f"\n No hay suficiente tiempo ({tiempo_restante}h) para '{tarea.nombre}' ({duracion_tarea}h)."
+                )
+                log_mensajes.append("La planificación se detiene aquí.")
+                break
+        
+        log_mensajes.append("-" * 30)
+        log_mensajes.append("--- Resumen de la Planificación ---")
+        
+        if tareas_programadas:
+            tiempo_utilizado = self.tiempo_disponible - tiempo_restante
+            nombres_tareas = [t.nombre for t in tareas_programadas]
+            
+            log_mensajes.append(f"Tareas programadas ({len(nombres_tareas)}): {', '.join(nombres_tareas)}")
+            log_mensajes.append(f"Tiempo total utilizado: {tiempo_utilizado} horas.")
+            log_mensajes.append(f"Tiempo restante final: {tiempo_restante} horas.")
+        else:
+            log_mensajes.append("No se pudo programar ninguna tarea.")
+            
+        return tareas_programadas, tiempo_restante, log_mensajes
+
+
+
+
+class AppGUI:
+    """Clase principal de la aplicación con la interfaz Tkinter."""
+
+  
+    def _init_(self, master):
+        self.master = master
+        master.title("Planificador de Producción por Prioridad")
+        
+        
+        self.tareas_data = []
+        self.tiempo_disponible = tk.IntVar(value=15) 
+
+        self.setup_ui()
+        self.cargar_datos_ejemplo()
+
+    def setup_ui(self):
+        """Configura todos los widgets de la interfaz."""
+        
+       
+        main_frame = ttk.Frame(self.master, padding="10")
+        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        
+        config_group = ttk.LabelFrame(main_frame, text=" Configuración ", padding="10")
+        config_group.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=10)
+        
+        ttk.Label(config_group, text="Tiempo Disponible (horas):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=5)
+        ttk.Entry(config_group, textvariable=self.tiempo_disponible, width=10).grid(row=0, column=1, padx=5, pady=5)
+
+       
+        tareas_group = ttk.LabelFrame(main_frame, text=" Tareas del Día ", padding="10")
+        tareas_group.grid(row=1, column=0, sticky=(tk.W, tk.E), pady=10)
+        
+      
+        self.tareas_tree = ttk.Treeview(tareas_group, columns=("Duracion", "Prioridad"), show="headings", height=5)
+        self.tareas_tree.heading("#0", text="Nombre de Tarea")
+        self.tareas_tree.heading("Duracion", text="Duración (h)")
+        self.tareas_tree.heading("Prioridad", text="Prioridad (1=Alta)")
+        self.tareas_tree.column("#0", width=200)
+        self.tareas_tree.column("Duracion", width=100, anchor=tk.CENTER)
+        self.tareas_tree.column("Prioridad", width=100, anchor=tk.CENTER)
+        self.tareas_tree.grid(row=0, column=0, columnspan=2, pady=5)
+        
+        
+        ttk.Button(tareas_group, text="Añadir Tarea", command=self.abrir_ventana_tarea).grid(row=1, column=0, pady=5, padx=5, sticky=tk.W)
+        ttk.Button(tareas_group, text="Eliminar Seleccionada", command=self.eliminar_tarea).grid(row=1, column=1, pady=5, padx=5, sticky=tk.E)
+
+       
+        ttk.Button(main_frame, text="PLANIFICAR PRODUCCIÓN", command=self.ejecutar_planificacion, style='Accent.TButton').grid(row=2, column=0, pady=15)
+
+      
+        ttk.Label(main_frame, text="Log de Planificación:").grid(row=3, column=0, sticky=tk.W, pady=(10, 0))
+        self.log_text = tk.Text(main_frame, height=10, width=60, state='disabled')
+        self.log_text.grid(row=4, column=0, sticky=(tk.W, tk.E))
+        
+        
+        self.master.style = ttk.Style()
+        self.master.style.configure('Accent.TButton', font=('Arial', 12, 'bold'), foreground='black', background='#4CAF50')
+
+
+    def cargar_datos_ejemplo(self):
+        """Carga las tareas de ejemplo al inicio."""
+        ejemplos = [
+            {'nombre': 'Produccion Producto C', 'duracion': 5, 'prioridad': 3},
+            {'nombre': 'Produccion Producto A', 'duracion': 8, 'prioridad': 1},
+            {'nombre': 'Mantenimiento de Maquina', 'duracion': 2, 'prioridad': 2},
+            {'nombre': 'Ensamblaje final', 'duracion': 4, 'prioridad': 1},
+            {'nombre': 'Inspeccion de calidad', 'duracion': 3, 'prioridad': 4},
+        ]
+        
+        for e in ejemplos:
+            self.agregar_tarea(e['nombre'], e['duracion'], e['prioridad'])
+
+    def refrescar_treeview(self):
+        """Limpia y rellena el Treeview con los datos actuales."""
+       
+        for item in self.tareas_tree.get_children():
+            self.tareas_tree.delete(item)
+            
+       
+        for tarea in self.tareas_data:
+            self.tareas_tree.insert("", tk.END, text=tarea.nombre, 
+                                     values=(tarea.duracion, tarea.prioridad), 
+                                     iid=id(tarea))
+
+    def agregar_tarea(self, nombre, duracion, prioridad):
+        """Crea un objeto Tarea y lo añade a la lista y al Treeview."""
+        try:
+            duracion = int(duracion)
+            prioridad = int(prioridad)
+            if not nombre or duracion <= 0 or prioridad <= 0:
+                 raise ValueError("Campos inválidos.")
+                    
+            nueva_tarea = Tarea(nombre, duracion, prioridad)
+            self.tareas_data.append(nueva_tarea)
+            self.refrescar_treeview()
+            return True
+        except ValueError as e:
+            messagebox.showerror("Error de entrada", f"Asegúrate de que la duración y prioridad sean números enteros positivos. {e}")
+            return False
+
+    def eliminar_tarea(self):
+        """Elimina la tarea seleccionada del Treeview y de la lista de datos."""
+        selected_item = self.tareas_tree.selection()
+        if not selected_item:
+            messagebox.showwarning("Advertencia", "Por favor, selecciona una tarea para eliminar.")
+            return
+
+        item_id = int(selected_item[0])
+        
+    
+        self.tareas_data = [t for t in self.tareas_data if id(t) != item_id]
+        
+        self.refrescar_treeview()
+
+    def abrir_ventana_tarea(self):
+        """Maneja la ventana modal para añadir una nueva tarea."""
+        
+       
+        top = tk.Toplevel(self.master)
+        top.title("Añadir Nueva Tarea")
+        top.geometry("300x180")
+        top.transient(self.master)  
+        
+        ttk.Label(top, text="Nombre:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(top, text="Duración (h):").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(top, text="Prioridad:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
+        
+        nombre_var = tk.StringVar()
+        duracion_var = tk.StringVar()
+        prioridad_var = tk.StringVar()
+        
+        ttk.Entry(top, textvariable=nombre_var).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Entry(top, textvariable=duracion_var).grid(row=1, column=1, padx=5, pady=5)
+        ttk.Entry(top, textvariable=prioridad_var).grid(row=2, column=1, padx=5, pady=5)
+
+        def guardar_tarea():
+            if self.agregar_tarea(nombre_var.get(), duracion_var.get(), prioridad_var.get()):
+                top.destroy()
+        
+        ttk.Button(top, text="Guardar", command=guardar_tarea).grid(row=3, column=0, columnspan=2, pady=10)
+
+
+    def ejecutar_planificacion(self):
+        """Instancia el Planificador y muestra los resultados en el área de log."""
+        try:
+            horas = self.tiempo_disponible.get()
+            
+            
+            self.log_text.config(state='normal')
+            self.log_text.delete(1.0, tk.END)
+            
+            if horas <= 0:
+                messagebox.showerror("Error", "El tiempo disponible debe ser positivo.")
+                return
+
+            
+            planificador = Planificador(horas, self.tareas_data)
+            
+           
+            _, _, log_messages = planificador.planificar_produccion()
+            
+            
+            for msg in log_messages:
+                self.log_text.insert(tk.END, msg + "\n")
+                
+            self.log_text.config(state='disabled')
+
+        except Exception as e:
+            messagebox.showerror("Error de Ejecución", f"Ha ocurrido un error al planificar: {e}")
+            self.log_text.config(state='disabled')
+
+
+
+
+if _name_ == "_main_":
+    root = tk.Tk()
+    app = AppGUI(root)
+    root.mainloop()
